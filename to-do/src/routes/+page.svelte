@@ -1,15 +1,129 @@
 <script lang="ts">
-  let todos = $state([
-    { text: "Todo 1", done: false },
-    { text: "Todo 3", done: false },
-  ]);
+  type Todo = {
+    text: string;
+    done: boolean;
+  };
+
+  type Filters = "all" | "active" | "completed";
+
+  let todos = $state<Todo[]>([]);
+  let filter = $state<Filters>("all");
+  let filteredToDos = $derived(filterToDos());
+
+  $effect(() => {
+    const savedToDos = localStorage.getItem("todos");
+    // if (savedToDos) {
+    //   todos = JSON.parse(savedToDos);
+    // }
+    // or written as
+    savedToDos && (todos = JSON.parse(savedToDos));
+  });
+
+  $effect(() => {
+    localStorage.setItem("todos", JSON.stringify(todos));
+  });
+
+  function addToDo(event: KeyboardEvent) {
+    if (event.key != "Enter") return;
+
+    const todoEl = event.target as HTMLInputElement;
+    const text = todoEl.value;
+    const done = false;
+
+    todos = [...todos, { text, done }];
+
+    todoEl.value = "";
+  }
+
+  function editToDo(event: Event) {
+    const inputEl = event.target as HTMLInputElement;
+    const index = +inputEl.dataset.index!;
+
+    todos[index].text = inputEl.value;
+  }
+
+  function toggleToDo(event: Event) {
+    const inputEl = event.target as HTMLInputElement;
+    const index = +inputEl.dataset.index!;
+
+    todos[index].done = !todos[index].done;
+  }
+
+  function setFilter(newFilter: Filters) {
+    filter = newFilter;
+  }
+
+  function filterToDos() {
+    switch (filter) {
+      case "all":
+        return todos;
+
+      case "active":
+        return todos.filter((todo) => !todo.done);
+
+      case "completed":
+        return todos.filter((todo) => todo.done);
+    }
+  }
+
+  function remaining() {
+    return todos.filter((todo) => !todo.done).length;
+  }
 </script>
 
+<input onkeydown={addToDo} placeholder="Add ToDo" type="text" />
+
 <div class="todos">
-  {#each todos as todo, i}
-    <div class="todo">
-      <input value={todo.text} type="text" />
-      <input value={todo.done} type="checkbox" />
+  {#each filteredToDos as todo, i}
+    <div class:completed={todo.done} class="todo">
+      <input oninput={editToDo} data-index={i} value={todo.text} type="text" />
+      <input
+        onchange={toggleToDo}
+        data-index={i}
+        checked={todo.done}
+        type="checkbox"
+      />
     </div>
   {/each}
 </div>
+
+<div class="filters">
+  <button onclick={() => setFilter("all")}>All</button>
+  <button onclick={() => setFilter("active")}>Active</button>
+  <button onclick={() => setFilter("completed")}>Completed</button>
+</div>
+
+<p>{remaining()} remaining</p>
+
+<style>
+  .todos {
+    display: grid;
+    gap: 1rem;
+    margin-block-start: 1rem;
+  }
+
+  .todo {
+    position: relative;
+    transition: opacity 0.3s;
+  }
+
+  .completed {
+    opacity: 0.4;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  input[type="checkbox"] {
+    position: absolute;
+    right: 4%;
+    top: 50%;
+    translate: 0% -50%;
+  }
+
+  .filters {
+    margin-block: 1rem;
+  }
+</style>
